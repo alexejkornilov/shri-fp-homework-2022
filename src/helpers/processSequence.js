@@ -14,38 +14,88 @@
  * Иногда промисы от API будут приходить в состояние rejected, (прямо как и API в реальной жизни)
  * Ответ будет приходить в поле {result}
  */
- import Api from '../tools/api';
+import Api from '../tools/api';
+import {
+    allPass,
+    andThen,
+    compose,
+    concat,
+    gt,
+    ifElse,
+    length,
+    lt,
+    modulo,
+    otherwise,
+    prop,
+    tap,
+    test,
+    toString
+} from "ramda";
+import {round} from "lodash";
 
- const api = new Api();
+const api = new Api();
 
- /**
-  * Я – пример, удали меня
-  */
- const wait = time => new Promise(resolve => {
-     setTimeout(resolve, time);
- })
 
- const processSequence = ({value, writeLog, handleSuccess, handleError}) => {
-     /**
-      * Я – пример, удали меня
-      */
-     writeLog(value);
 
-     api.get('https://api.tech/numbers/base', {from: 2, to: 10, number: '01011010101'}).then(({result}) => {
-         writeLog(result);
-     });
+const lessTenSymbol = compose(gt(10), length);
 
-     wait(2500).then(() => {
-         writeLog('SecondLog')
+const moreTwoSymbol = compose(lt(1), length);
 
-         return wait(1500);
-     }).then(() => {
-         writeLog('ThirdLog');
+const isPositiveValue = compose(lt(0), parseFloat);
 
-         return wait(400);
-     }).then(() => {
-         handleSuccess('Done');
-     });
- }
+const roundUpToNumber = compose(round, parseFloat);
 
- export default processSequence;
+const getNumbersBaseApi = api.get('https://api.tech/numbers/base');
+const getBinaryData = (number) => getNumbersBaseApi({from: 10, to: 2, number})
+
+const getResult = prop('result');
+
+const validateSting = allPass([
+    test(/^\d+(\.\d+)?$/),
+    isPositiveValue,
+    moreTwoSymbol,
+    lessTenSymbol
+])
+const numberToSquare = (number) => Math.pow(number, 2);
+
+const getModThree = (number) => modulo(number, 3);
+
+const createAnimalUrl = concat('https://animals.tech/');
+const getAnimalData = (url) => api.get(url, {});
+
+const processSequence = ({value, writeLog, handleSuccess, handleError}) => {
+    const tapWriteLog = tap(writeLog);
+    const handleValidationError = () => handleError('ValidationError');
+    const handleErrorPromise = (e) => handleError(e);
+
+    compose(
+        ifElse(
+            validateSting,
+            compose(
+                otherwise(handleErrorPromise),
+                andThen(handleSuccess),
+                andThen(getResult),
+                andThen(getAnimalData),
+                andThen(tapWriteLog),
+                andThen(createAnimalUrl),
+                andThen(toString),
+                andThen(tapWriteLog),
+                andThen(getModThree),
+                andThen(tapWriteLog),
+                andThen(numberToSquare),
+                andThen(tapWriteLog),
+                andThen(length),
+                andThen(tapWriteLog),
+                andThen(getResult),
+                getBinaryData,
+                tapWriteLog,
+                roundUpToNumber
+            ),
+            handleValidationError
+        ),
+        tapWriteLog
+    )(value)
+
+}
+
+export default processSequence;
